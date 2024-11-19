@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="zh-cmn-Hans">
+
+<head>
+  <meta charset="UTF-8">
+  <title>Github 镜像加速节点测试</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    * {
+      font-family: "JetBrains Mono", source-code-pro, "SF Mono", Monaco, Menlo, Consolas, "Ubuntu Mono", "Liberation Mono", "DejaVu Sans Mono", "Courier New", -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, 'Noto Sans', sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji', monospace;
+    }
+  </style>
+</head>
+
+<body class="bg-gray-100 min-h-screen flex flex-col items-center justify-center p-4">
+  <div class="bg-white shadow-md rounded-lg p-6 w-full max-w-2xl">
+    <h3 class="text-2xl font-bold text-center text-gray-800 mb-6">Github 镜像加速节点测试</h3>
+
+    <div class="mb-4">
+      <textarea id="ipt-mirrors" rows="10"
+        class="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+        placeholder="输入镜像地址，每行一个">https://github.moeyy.xyz
+https://ghproxy.net
+https://gh-proxy.com
+https://gh-proxy.llyke.com
+https://gh.cache.cloudns.org
+https://gh.ddlc.top
+https://slink.ltd
+https://gh.con.sh
+https://sciproxy.com
+https://cf.ghproxy.cc
+https://ghproxy.cn
+https://ghproxy.cc
+https://gh.jiasu.in
+https://mirror.ghproxy.com
+https://hub.gitmirror.com
+https://ghps.cc
+https://ghproxy.org
+https://ghproxy.top
+https://gh.ezctrl.cn
+https://gh.sixyin.com
+https://gh.noki.icu</textarea>
+    </div>
+
+    <div class="flex justify-center space-x-4 mb-4">
+      <button id="btn-test-all"
+        class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded transition duration-300">
+        测试全部
+      </button>
+      <button id="btn-get-fastest"
+        class="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded transition duration-300">
+        获取最快
+      </button>
+    </div>
+
+    <div id="div-output"
+      class="mt-4 flex flex-wrap justify-center items-center gap-2 min-h-[100px] border border-gray-200 rounded-md p-2">
+    </div>
+  </div>
+
+  <script>
+    // 之前的 JavaScript 代码保持不变
+    const ipt_mirrors = document.getElementById('ipt-mirrors')
+    const btn_test_all = document.getElementById('btn-test-all')
+    const btn_get_fastest = document.getElementById('btn-get-fastest')
+    const div_output = document.getElementById('div-output')
+
+    const testAllMirror = async (mirrors) => {
+      const results = []
+      await Promise.allSettled(mirrors.map((mirror) => {
+        if (!mirror.endsWith('/')) mirror += '/'
+        return new Promise((resolve, reject) => {
+          const containerElm = document.createElement('div')
+          containerElm.className = 'flex items-center w-full p-2 border rounded-lg relative'
+
+          const urlElm = document.createElement('p')
+          urlElm.className = 'text-sm text-gray-600 flex-grow truncate mr-20'
+          urlElm.innerText = mirror
+
+          const statusElm = document.createElement('span')
+          statusElm.className = 'text-xs ml-2 flex-shrink-0 mr-10'
+
+          // 复制按钮
+          const copyBtn = document.createElement('button')
+          copyBtn.innerHTML = '📋'
+          copyBtn.className = 'absolute top-1 right-2 text-xs bg-gray-100 rounded p-1 hover:bg-gray-200'
+          copyBtn.addEventListener('click', () => {
+            navigator.clipboard.writeText(mirror).then(() => {
+              copyBtn.innerHTML = '✅'
+              setTimeout(() => {
+                copyBtn.innerHTML = '📋'
+              }, 1000)
+            })
+          })
+
+          const testImg = new Image()
+          const testStart = Date.now()
+          testImg.onload = () => {
+            const testTime = Date.now() - testStart
+            containerElm.classList.add('bg-green-50', 'border-green-300')
+            statusElm.className += ' text-green-600'
+            statusElm.innerText = `可用 (${testTime}ms)`
+
+            results.push({
+              mirror,
+              time: testTime,
+              element: containerElm,
+              status: 'success'
+            })
+
+            // 实时排序并重新渲染
+            sortAndRenderResults(results)
+
+            resolve()
+          }
+
+          testImg.onerror = () => {
+            const testTime = Date.now() - testStart
+            containerElm.classList.add('bg-red-50', 'border-red-300')
+            statusElm.className += ' text-red-600'
+            statusElm.innerText = `不可用 (${testTime}ms)`
+
+            results.push({
+              mirror,
+              time: testTime,
+              element: containerElm,
+              status: 'error'
+            })
+
+            // 实时排序并重新渲染
+            sortAndRenderResults(results)
+
+            reject()
+          }
+
+          testImg.src = `${mirror}https://raw.githubusercontent.com/pansong291/Pictures/master/watermark/success.svg?t=${Date.now()}`
+
+          containerElm.append(urlElm, statusElm, copyBtn)
+          div_output.append(containerElm)
+        })
+      }))
+    }
+
+    // 新增排序和渲染函数
+    const sortAndRenderResults = (results) => {
+      // 先按状态排序（成功的在前），再按时间排序
+      const sortedResults = results.sort((a, b) => {
+        // 成功的排在前面
+        if (a.status === 'success' && b.status === 'error') return -1
+        if (a.status === 'error' && b.status === 'success') return 1
+
+        // 成功的按时间排序
+        if (a.status === 'success' && b.status === 'success') {
+          return a.time - b.time
+        }
+
+        // 失败的按时间排序
+        if (a.status === 'error' && b.status === 'error') {
+          return a.time - b.time
+        }
+
+        return 0
+      })
+
+      // 清空当前输出
+      div_output.innerHTML = ''
+
+      // 重新添加排序后的元素
+      sortedResults.forEach(result => {
+        div_output.appendChild(result.element)
+      })
+
+      // 添加测试结束提示
+      if (results.length === getMirrors().length) {
+        const pElm = document.createElement('p')
+        pElm.className = 'w-full text-center text-gray-600 mt-2'
+        pElm.innerText = '测试结束'
+        div_output.append(pElm)
+        setButtonDisabled(false)
+      }
+    }
+
+    const findMirror = async (mirrors) => {
+      const results = []
+      const xhrs = mirrors.map((mirror) => {
+        if (!mirror.endsWith('/')) mirror += '/'
+        const containerElm = document.createElement('div')
+        containerElm.className = 'flex items-center w-full p-2 border rounded-lg relative'
+
+        const urlElm = document.createElement('p')
+        urlElm.className = 'text-sm text-gray-600 flex-grow truncate mr-20'
+        urlElm.innerText = mirror
+
+        const statusElm = document.createElement('span')
+        statusElm.className = 'text-xs ml-2 flex-shrink-0 mr-10'
+
+        // 复制按钮
+        const copyBtn = document.createElement('button')
+        copyBtn.innerHTML = '📋'
+        copyBtn.className = 'absolute top-1 right-2 text-xs bg-gray-100 rounded p-1 hover:bg-gray-200'
+        copyBtn.addEventListener('click', () => {
+          navigator.clipboard.writeText(mirror).then(() => {
+            copyBtn.innerHTML = '✅'
+            setTimeout(() => {
+              copyBtn.innerHTML = '📋'
+            }, 1000)
+          })
+        })
+
+        const xhr = new XMLHttpRequest()
+        xhr._mirror = mirror
+        xhr._startTime = Date.now()
+        xhr._containerElm = containerElm
+        xhr._urlElm = urlElm
+        xhr._statusElm = statusElm
+        xhr._copyBtn = copyBtn
+        xhr.open('GET', `${mirror}https://raw.githubusercontent.com/pansong291/Pictures/master/test.png?t=${Date.now()}`)
+        return xhr
+      })
+
+      const promises = xhrs.map((xhr) => new Promise((resolve, reject) => {
+        xhr.addEventListener('abort', reject)
+        xhr.addEventListener('error', reject)
+        xhr.addEventListener('timeout', reject)
+        xhr.addEventListener('load', () => {
+          const testTime = Date.now() - xhr._startTime
+          xhr._containerElm.classList.add('bg-green-50', 'border-green-300')
+          xhr._statusElm.className += ' text-green-600'
+          xhr._statusElm.innerText = `可用 (${testTime}ms)`
+
+          results.push({
+            mirror: xhr._mirror,
+            time: testTime,
+            element: xhr._containerElm,
+            status: 'success'
+          })
+
+          xhr._containerElm.append(xhr._urlElm, xhr._statusElm, xhr._copyBtn)
+          div_output.append(xhr._containerElm)
+
+          resolve({ mirror: xhr._mirror, time: testTime })
+        })
+
+        xhr.send()
+      }))
+
+      let fastest = null
+      try {
+        fastest = await Promise.any(promises)
+        xhrs.forEach((xhr) => xhr.abort())
+      } catch (e) {
+        console.error('all failed', e)
+      }
+
+      // 如果找到可用的镜像，只展示最快的那个
+      if (fastest) {
+        div_output.innerHTML = ''
+        const containerElm = document.createElement('div')
+        containerElm.className = 'flex items-center w-full p-2 border rounded-lg relative bg-green-50 border-green-300'
+
+        const urlElm = document.createElement('p')
+        urlElm.className = 'text-sm text-gray-600 flex-grow truncate mr-20'
+        urlElm.innerText = fastest.mirror
+
+        const statusElm = document.createElement('span')
+        statusElm.className = 'text-xs ml-2 flex-shrink-0 mr-10 text-green-600'
+        statusElm.innerText = `最快 (${fastest.time}ms)`
+
+        // 复制按钮
+        const copyBtn = document.createElement('button')
+        copyBtn.innerHTML = '📋'
+        copyBtn.className = 'absolute top-1 right-2 text-xs bg-gray-100 rounded p-1 hover:bg-gray-200'
+        copyBtn.addEventListener('click', () => {
+          navigator.clipboard.writeText(fastest.mirror).then(() => {
+            copyBtn.innerHTML = '✅'
+            setTimeout(() => {
+              copyBtn.innerHTML = '📋'
+            }, 1000)
+          })
+        })
+
+        containerElm.append(urlElm, statusElm, copyBtn)
+        div_output.append(containerElm)
+      }
+
+      return fastest ? `${fastest.mirror} (${fastest.time}ms)` : null
+    }
+
+    const getMirrors = () => ipt_mirrors.value.split(/\s+/).filter((it) => !!it)
+
+    const setButtonDisabled = (disabled) => {
+      if (disabled) {
+        btn_test_all.setAttribute('disabled', 'disabled')
+        btn_get_fastest.setAttribute('disabled', 'disabled')
+        btn_test_all.classList.add('opacity-50', 'cursor-not-allowed')
+        btn_get_fastest.classList.add('opacity-50', 'cursor-not-allowed')
+      } else {
+        btn_test_all.removeAttribute('disabled')
+        btn_get_fastest.removeAttribute('disabled')
+        btn_test_all.classList.remove('opacity-50', 'cursor-not-allowed')
+        btn_get_fastest.classList.remove('opacity-50', 'cursor-not-allowed')
+      }
+    }
+
+    btn_test_all.addEventListener('click', () => {
+      setButtonDisabled(true)
+      div_output.innerText = ''
+      testAllMirror(getMirrors()).then(() => {
+        // const pElm = document.createElement('p')
+        // pElm.className = 'w-full text-center text-gray-600 mt-2'
+        // pElm.innerText = '测试结束'
+        // div_output.append(pElm)
+        setButtonDisabled(false)
+      })
+    })
+
+    btn_get_fastest.addEventListener('click', () => {
+      setButtonDisabled(true)
+      div_output.innerText = ''
+      findMirror(getMirrors()).then((mirror) => {
+        // const pElm = document.createElement('p')
+        // pElm.className = 'w-full text-center text-gray-600 mt-2'
+        // pElm.innerText = mirror || '全部失败'
+        // div_output.append(pElm)
+        setButtonDisabled(false)
+      })
+    })
+  </script>
+</body>
+
+</html>
